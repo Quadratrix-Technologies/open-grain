@@ -2,7 +2,7 @@
 // Silver halide precipitation simulator
 // Honoring Ron Mowrey (PE), Grant Haist, and L.F.A. Mason
 
-import { runSimulation, predictCrystalHabit, estimateRelativeSpeed } from './sim';
+import { runSimulation, predictCrystalHabit, estimateRelativeSpeed, estimateISO } from './sim';
 import type { SimParams, SimState } from './sim';
 import {
   drawChemistryPlot,
@@ -283,6 +283,7 @@ const PRESETS: Preset[] = [
       jetDuration: 600,
       agJetConc: 0,
       agJetFlowRate: 0,
+      kiConc: 0.027,
       ammoniaConc: 0.3,
       digestDuration: 1800,
       mixingTime: 5,
@@ -302,6 +303,7 @@ const PRESETS: Preset[] = [
       jetDuration: 600,
       agJetConc: 0,
       agJetFlowRate: 0,
+      kiConc: 0.012,
       ammoniaConc: 0,
       digestDuration: 1500,
       mixingTime: 5,
@@ -321,6 +323,7 @@ const PRESETS: Preset[] = [
       jetDuration: 1200,
       agJetConc: 0,
       agJetFlowRate: 0,
+      kiConc: 0,
       ammoniaConc: 0,
       digestDuration: 5400,
       mixingTime: 5,
@@ -340,6 +343,7 @@ const PRESETS: Preset[] = [
       jetDuration: 600,
       agJetConc: 0,
       agJetFlowRate: 0,
+      kiConc: 0,
       ammoniaConc: 0,
       digestDuration: 600,
       mixingTime: 5,
@@ -359,6 +363,7 @@ const PRESETS: Preset[] = [
       jetDuration: 310,     // ~31 mL at 6 mL/min
       agJetConc: 1.96,      // AgNO\u2083 jet: 20 g in 60 mL + NH\u2084OH
       agJetFlowRate: 3.1,   // Ag\u207a jet flow (C solution)
+      kiConc: 0,
       ammoniaConc: 0.3,
       digestDuration: 1800,
       mixingTime: 2,        // 2000 rpm overhead stirring
@@ -374,6 +379,7 @@ const DEFAULT_PARAMS: SimParams = {
   gelatinConc: 40,
   agno3Conc: 0.5,
   halidConc: 1.0,
+  kiConc: 0,
   jetFlowRate: 5.0,
   jetDuration: 300,
   agJetConc: 0,
@@ -434,6 +440,7 @@ function buildUI() {
   ]));
   sidebar.appendChild(buildParamGroup('HALIDE JET', [
     { key: 'halidConc', label: '[KBr]', unit: 'M', step: 0.1, min: 0.1, max: 4 },
+    { key: 'kiConc', label: '[KI]', unit: 'M', step: 0.001, min: 0, max: 0.5 },
     { key: 'jetFlowRate', label: 'flow rate', unit: 'mL/m', step: 0.5, min: 0.5, max: 50 },
     { key: 'jetDuration', label: 'duration', unit: 's', step: 10, min: 30, max: 3600 },
   ]));
@@ -582,6 +589,7 @@ function readParams(): SimParams {
     gelatinConc: v('gelatinConc'),
     agno3Conc: v('agno3Conc'),
     halidConc: v('halidConc'),
+    kiConc: v('kiConc'),
     jetFlowRate: v('jetFlowRate'),
     jetDuration: v('jetDuration'),
     agJetConc: v('agJetConc'),
@@ -649,8 +657,13 @@ function updateStats(timepoints: SimState[]) {
   const dNm = (f.meanRadius * 2e9).toFixed(1);
   const sNm = (f.stdRadius * 2e9).toFixed(1);
   const cv = f.meanRadius > 0 ? ((f.stdRadius / f.meanRadius) * 100).toFixed(1) : '—';
-  const habit = predictCrystalHabit(f.pAg, 0);
+  const habit = predictCrystalHabit(f.pAg, f.iodideMolPct);
   const speed = estimateRelativeSpeed(f.meanRadius, habit).toFixed(2);
+  const iso = estimateISO(f.meanRadius, f.totalGrains / f.volume);
+  const isoStr = iso.value > 0
+    ? `${iso.value.toFixed(0)} (${iso.low.toFixed(0)}–${iso.high.toFixed(0)})`
+    : '—';
+  const iodideStr = f.iodideMolPct > 0 ? `${f.iodideMolPct.toFixed(2)} mol%` : '—';
 
   el.innerHTML = `
     <div class="stat-row"><span class="stat-key">mean \u00d8</span><span class="stat-val">${dNm} nm</span></div>
@@ -658,8 +671,10 @@ function updateStats(timepoints: SimState[]) {
     <div class="stat-row"><span class="stat-key">CV</span><span class="stat-val">${cv}%</span></div>
     <div class="stat-row"><span class="stat-key">total grains</span><span class="stat-val">${fmt(f.totalGrains)}</span></div>
     <div class="stat-row"><span class="stat-key">final pAg</span><span class="stat-val">${f.pAg.toFixed(2)}</span></div>
+    <div class="stat-row"><span class="stat-key">iodide</span><span class="stat-val">${iodideStr}</span></div>
     <div class="stat-row"><span class="stat-key">habit</span><span class="stat-val">${habit}</span></div>
     <div class="stat-row"><span class="stat-key">rel. speed</span><span class="stat-val">${speed}</span></div>
+    <div class="stat-row"><span class="stat-key">est. ISO (pre-chem)</span><span class="stat-val">${isoStr}</span></div>
   `;
 
   setText('s-grains', fmt(f.totalGrains));

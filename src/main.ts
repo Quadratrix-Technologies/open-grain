@@ -281,6 +281,8 @@ const PRESETS: Preset[] = [
       halidConc: 1.11,
       jetFlowRate: 100,
       jetDuration: 600,
+      agJetConc: 0,
+      agJetFlowRate: 0,
       ammoniaConc: 0.3,
       digestDuration: 1800,
       mixingTime: 5,
@@ -298,6 +300,8 @@ const PRESETS: Preset[] = [
       halidConc: 0.75,
       jetFlowRate: 40,
       jetDuration: 600,
+      agJetConc: 0,
+      agJetFlowRate: 0,
       ammoniaConc: 0,
       digestDuration: 1500,
       mixingTime: 5,
@@ -315,6 +319,8 @@ const PRESETS: Preset[] = [
       halidConc: 1.01,
       jetFlowRate: 5,
       jetDuration: 1200,
+      agJetConc: 0,
+      agJetFlowRate: 0,
       ammoniaConc: 0,
       digestDuration: 5400,
       mixingTime: 5,
@@ -332,9 +338,30 @@ const PRESETS: Preset[] = [
       halidConc: 1.07,
       jetFlowRate: 12.5,
       jetDuration: 600,
+      agJetConc: 0,
+      agJetFlowRate: 0,
       ammoniaConc: 0,
       digestDuration: 600,
       mixingTime: 5,
+    },
+  },
+  {
+    label: 'LeoniD core-shell (double-jet)',
+    source: 'Photrio 2023 — LeoniD',
+    note: 'Double-jet: simultaneous Ag\u207a and Br\u207b jets into gelatin. KI shell added separately. 45\u00b0C, 30 min digest.',
+    params: {
+      reactorVolume: 0.05,
+      temperature: 45,
+      gelatinConc: 40,
+      agno3Conc: 0,         // double-jet: no pre-loaded silver
+      halidConc: 5.51,      // KBr jet: 20.3 g in 31 mL
+      jetFlowRate: 6.0,     // Br\u207b jet flow (B solution)
+      jetDuration: 310,     // ~31 mL at 6 mL/min
+      agJetConc: 1.96,      // AgNO\u2083 jet: 20 g in 60 mL + NH\u2084OH
+      agJetFlowRate: 3.1,   // Ag\u207a jet flow (C solution)
+      ammoniaConc: 0.3,
+      digestDuration: 1800,
+      mixingTime: 2,        // 2000 rpm overhead stirring
     },
   },
 ];
@@ -349,6 +376,8 @@ const DEFAULT_PARAMS: SimParams = {
   halidConc: 1.0,
   jetFlowRate: 5.0,
   jetDuration: 300,
+  agJetConc: 0,
+  agJetFlowRate: 0,
   ammoniaConc: 0.1,
   digestDuration: 600,
   mixingTime: 5,
@@ -375,7 +404,7 @@ function buildUI() {
   titlebar.innerHTML = `
     <div>
       <h1>OPEN GRAIN</h1>
-      <div class="subtitle">silver halide precipitation simulator &mdash; SRAD v0.1</div>
+      <div class="subtitle">silver halide precipitation simulator</div>
     </div>
     <div class="controls">
       <button id="btn-reset">RESET</button>
@@ -397,7 +426,11 @@ function buildUI() {
     { key: 'mixingTime', label: 'mix time \u03c4', unit: 's', step: 1, min: 1, max: 60 },
   ]));
   sidebar.appendChild(buildParamGroup('SILVER NITRATE', [
-    { key: 'agno3Conc', label: '[AgNO\u2083]', unit: 'M', step: 0.05, min: 0.05, max: 2 },
+    { key: 'agno3Conc', label: '[AgNO\u2083]', unit: 'M', step: 0.05, min: 0, max: 2 },
+  ]));
+  sidebar.appendChild(buildParamGroup('SILVER JET \u2014 double-jet (0\u2009=\u2009SRAD)', [
+    { key: 'agJetConc', label: '[AgNO\u2083] jet', unit: 'M', step: 0.05, min: 0, max: 4 },
+    { key: 'agJetFlowRate', label: 'Ag flow rate', unit: 'mL/m', step: 0.1, min: 0, max: 20 },
   ]));
   sidebar.appendChild(buildParamGroup('HALIDE JET', [
     { key: 'halidConc', label: '[KBr]', unit: 'M', step: 0.1, min: 0.1, max: 4 },
@@ -551,6 +584,8 @@ function readParams(): SimParams {
     halidConc: v('halidConc'),
     jetFlowRate: v('jetFlowRate'),
     jetDuration: v('jetDuration'),
+    agJetConc: v('agJetConc'),
+    agJetFlowRate: v('agJetFlowRate'),
     ammoniaConc: v('ammoniaConc'),
     digestDuration: v('digestDuration'),
     mixingTime: v('mixingTime'),

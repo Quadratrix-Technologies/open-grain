@@ -71,6 +71,11 @@ export interface SimParams {
   jetFlowRate: number;        // mL/min (constant for now)
   jetDuration: number;        // seconds
 
+  // Silver jet — double-jet mode (set agJetFlowRate > 0 to enable)
+  // In double-jet: agno3Conc should be 0 (reactor starts with gelatin only)
+  agJetConc: number;          // mol/L — AgNO₃ jet concentration
+  agJetFlowRate: number;      // mL/min — 0 = SRAD single-jet, >0 = double-jet
+
   // Ammonia digest
   ammoniaConc: number;        // mol/L (when added)
   digestDuration: number;     // seconds
@@ -197,48 +202,63 @@ export function runSimulation(params: SimParams): SimResult {
     //   3. Add the leftover (un-nucleated) Br⁻ to the bulk
     // This prevents nucleation from draining bulk brC and starving growth.
 
-    let molsBrToMixIntoBulk = 0;
-
     if (phase === 'precipitation') {
-      const jetFlowL   = (params.jetFlowRate / 1000 / 60) * dt;
-      const molsBrThisStep = jetFlowL * params.halidConc;
-      const newVol     = vol + jetFlowL;
+      // ── Volume additions ─────────────────────────────────────────────────
+      const jetFlowL   = (params.jetFlowRate   / 1000 / 60) * dt; // Br⁻ jet
+      const agJetFlowL = (params.agJetFlowRate / 1000 / 60) * dt; // Ag⁺ jet (0 in SRAD)
+      const molsBrThisStep = jetFlowL   * params.halidConc;
+      const molsAgJet      = agJetFlowL * params.agJetConc;
 
-      // Dilute existing bulk species for the new volume
+      // Dilute existing bulk species for the combined volume increase
+      const newVol = vol + jetFlowL + agJetFlowL;
       agC = (agC * vol) / newVol;
       brC = (brC * vol) / newVol;
       vol = newVol;
 
-      // S in the plume: jet Br⁻ concentration meets bulk Ag⁺
-      const S_plume = supersaturation(agC, params.halidConc, tempC);
+      // Shared bin geometry for both plume nucleation paths
+      const r0              = centers[0];
+      const molesPerNucleus = ((4 / 3) * Math.PI * r0 * r0 * r0) / VM_AGBR;
+      const mixingFactor    = dt / params.mixingTime;
 
+      // ── Br⁻ plume nucleation (both SRAD and double-jet) ──────────────────
+      // Jet Br⁻ meets bulk Ag⁺. Nuclei consume Ag⁺ from bulk; Br⁻ came from jet.
+      const S_plume_br = supersaturation(agC, params.halidConc, tempC);
       let molsBrNucleated = 0;
-      if (S_plume > S_NUC_THRESHOLD) {
-        const r0             = centers[0];
-        const volNucleus     = (4 / 3) * Math.PI * r0 * r0 * r0;
-        const molesPerNucleus = volNucleus / VM_AGBR;
-
-        // Plume cap: only a fraction (dt/mixingTime) of each step's Br⁻ is in the
-        // active nucleation zone before dispersing. The rest mixes into the bulk.
-        // Short mixingTime → large fraction nucleates. Long mixingTime → small fraction
-        // nucleates, most goes to bulk → more growth, fewer nuclei.
-        const mixingFactor   = dt / params.mixingTime;
-        const maxFromPlume   = (molsBrThisStep * mixingFactor) / molesPerNucleus;
-        const maxFromAg      = (agC * vol) / molesPerNucleus;
-        // Plume volume: the volume of jet solution actively in the nucleation zone.
-        // nucleationRate returns nuclei/L/s; multiply by plume volume (L) to get total nuclei.
-        const V_plume        = (molsBrThisStep * mixingFactor) / params.halidConc; // L
-        const newNuclei      = Math.min(nucleationRate(S_plume, tempC) * dt * V_plume, maxFromPlume, maxFromAg);
-
-        bins[0]          += newNuclei;
-        molsBrNucleated   = newNuclei * molesPerNucleus;
-        agC               = Math.max(0, agC - molsBrNucleated / vol);
-        // Br⁻ came from the plume — do NOT subtract from bulk brC
+      if (S_plume_br > S_NUC_THRESHOLD) {
+        const maxFromPlume_br = (molsBrThisStep * mixingFactor) / molesPerNucleus;
+        const maxFromAg       = (agC * vol) / molesPerNucleus;
+        const V_plume_br      = (molsBrThisStep * mixingFactor) / params.halidConc;
+        const newNuclei_br    = Math.min(
+          nucleationRate(S_plume_br, tempC) * dt * V_plume_br,
+          maxFromPlume_br, maxFromAg,
+        );
+        bins[0]         += newNuclei_br;
+        molsBrNucleated  = newNuclei_br * molesPerNucleus;
+        agC              = Math.max(0, agC - molsBrNucleated / vol);
       }
 
-      // Whatever Br⁻ wasn't consumed by nucleation mixes into the bulk
-      molsBrToMixIntoBulk = Math.max(0, molsBrThisStep - molsBrNucleated);
-      brC += molsBrToMixIntoBulk / vol;
+      // ── Ag⁺ plume nucleation (double-jet only) ───────────────────────────
+      // Jet Ag⁺ meets bulk Br⁻. Nuclei consume Br⁻ from bulk; Ag⁺ came from jet.
+      let molsAgNucleated = 0;
+      if (params.agJetFlowRate > 0 && molsAgJet > 0) {
+        const S_plume_ag = supersaturation(params.agJetConc, brC, tempC);
+        if (S_plume_ag > S_NUC_THRESHOLD) {
+          const maxFromPlume_ag = (molsAgJet * mixingFactor) / molesPerNucleus;
+          const maxFromBr       = (brC * vol) / molesPerNucleus;
+          const V_plume_ag      = (molsAgJet * mixingFactor) / params.agJetConc;
+          const newNuclei_ag    = Math.min(
+            nucleationRate(S_plume_ag, tempC) * dt * V_plume_ag,
+            maxFromPlume_ag, maxFromBr,
+          );
+          bins[0]          += newNuclei_ag;
+          molsAgNucleated   = newNuclei_ag * molesPerNucleus;
+          brC               = Math.max(0, brC - molsAgNucleated / vol);
+        }
+      }
+
+      // Leftover from both jets mixes into the bulk
+      brC += Math.max(0, molsBrThisStep - molsBrNucleated) / vol;
+      agC += Math.max(0, molsAgJet      - molsAgNucleated) / vol;
     }
 
     const S_bulk = supersaturation(agC, brC, tempC);
@@ -378,7 +398,12 @@ export function runSimulation(params: SimParams): SimResult {
         supersaturation: S_bulk,
         bins: new Float64Array(bins),
         nucleationRate: phase === 'precipitation'
-          ? nucleationRate(supersaturation(agC, params.halidConc, tempC), tempC)
+          ? Math.max(
+              nucleationRate(supersaturation(agC, params.halidConc, tempC), tempC),
+              params.agJetFlowRate > 0
+                ? nucleationRate(supersaturation(params.agJetConc, brC, tempC), tempC)
+                : 0,
+            )
           : 0,
         meanRadius: mean,
         stdRadius: std,

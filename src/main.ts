@@ -278,6 +278,7 @@ const PRESETS: Preset[] = [
       temperature: 45,
       gelatinConc: 30,
       agno3Conc: 1.53,
+      initialHalideConc: 0,
       halidConc: 1.11,
       jetFlowRate: 100,
       jetDuration: 600,
@@ -298,6 +299,7 @@ const PRESETS: Preset[] = [
       temperature: 55,
       gelatinConc: 28,
       agno3Conc: 0.59,
+      initialHalideConc: 0,
       halidConc: 0.75,
       jetFlowRate: 40,
       jetDuration: 600,
@@ -318,6 +320,7 @@ const PRESETS: Preset[] = [
       temperature: 55,
       gelatinConc: 25,
       agno3Conc: 0.59,
+      initialHalideConc: 0,
       halidConc: 1.01,
       jetFlowRate: 5,
       jetDuration: 1200,
@@ -338,6 +341,7 @@ const PRESETS: Preset[] = [
       temperature: 50,
       gelatinConc: 160,
       agno3Conc: 0.94,
+      initialHalideConc: 0,
       halidConc: 1.07,
       jetFlowRate: 12.5,
       jetDuration: 600,
@@ -358,6 +362,7 @@ const PRESETS: Preset[] = [
       temperature: 45,
       gelatinConc: 40,
       agno3Conc: 0,         // double-jet: no pre-loaded silver
+      initialHalideConc: 0,
       halidConc: 5.51,      // KBr jet: 20.3 g in 31 mL
       jetFlowRate: 6.0,     // Br\u207b jet flow (B solution)
       jetDuration: 310,     // ~31 mL at 6 mL/min
@@ -377,13 +382,14 @@ const DEFAULT_PARAMS: SimParams = {
   reactorVolume: 1.0,
   temperature: 40,
   gelatinConc: 40,
-  agno3Conc: 0.5,
+  agno3Conc: 0.0,
+  initialHalideConc: 1.0,
   halidConc: 1.0,
   kiConc: 0,
-  jetFlowRate: 5.0,
+  jetFlowRate: 0.0,
   jetDuration: 300,
-  agJetConc: 0,
-  agJetFlowRate: 0,
+  agJetConc: 1.0,
+  agJetFlowRate: 5.0,
   ammoniaConc: 0.1,
   digestDuration: 600,
   mixingTime: 5,
@@ -429,6 +435,7 @@ function buildUI() {
     { key: 'reactorVolume', label: 'volume', unit: 'L', step: 0.1, min: 0.1, max: 10 },
     { key: 'temperature', label: 'temp', unit: '°C', step: 1, min: 20, max: 70 },
     { key: 'gelatinConc', label: 'gelatin', unit: 'g/L', step: 5, min: 5, max: 200 },
+    { key: 'initialHalideConc', label: '[Br-] initial', unit: 'M', step: 0.05, min: 0, max: 4 },
     { key: 'mixingTime', label: 'mix time \u03c4', unit: 's', step: 1, min: 1, max: 60 },
   ]));
   sidebar.appendChild(buildParamGroup('SILVER NITRATE', [
@@ -441,7 +448,7 @@ function buildUI() {
   sidebar.appendChild(buildParamGroup('HALIDE JET', [
     { key: 'halidConc', label: '[KBr]', unit: 'M', step: 0.1, min: 0.1, max: 4 },
     { key: 'kiConc', label: '[KI]', unit: 'M', step: 0.001, min: 0, max: 0.5 },
-    { key: 'jetFlowRate', label: 'flow rate', unit: 'mL/m', step: 0.5, min: 0.5, max: 50 },
+    { key: 'jetFlowRate', label: 'flow rate', unit: 'mL/m', step: 0.5, min: 0, max: 50 },
     { key: 'jetDuration', label: 'duration', unit: 's', step: 10, min: 30, max: 3600 },
   ]));
   sidebar.appendChild(buildParamGroup('AMMONIA DIGEST', [
@@ -588,6 +595,7 @@ function readParams(): SimParams {
     temperature: v('temperature'),
     gelatinConc: v('gelatinConc'),
     agno3Conc: v('agno3Conc'),
+    initialHalideConc: v('initialHalideConc'),
     halidConc: v('halidConc'),
     kiConc: v('kiConc'),
     jetFlowRate: v('jetFlowRate'),

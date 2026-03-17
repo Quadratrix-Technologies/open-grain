@@ -53,6 +53,16 @@ function styleAxis(sel: d3.Selection<SVGGElement, unknown, null, undefined>) {
     .attr('font-size', '10px');
 }
 
+
+const fmtCompact = d3.format('.2~s');
+
+function fmtSciTick(v: d3.NumberValue): string {
+  const n = +v;
+  if (!Number.isFinite(n)) return '';
+  if (Math.abs(n) >= 1e5 || (Math.abs(n) > 0 && Math.abs(n) < 1e-2)) return n.toExponential(1);
+  return fmtCompact(n);
+}
+
 function axisLabel(
   g: d3.Selection<SVGGElement, unknown, null, undefined>,
   text: string,
@@ -203,14 +213,14 @@ export function drawGrainHistogram(
       if (v >= 1e-9) return `${v * 1e9}nm`;
       return '';
     });
-  const yAxis = d3.axisLeft(yScale).ticks(4);
+  const yAxis = d3.axisLeft(yScale).ticks(4).tickFormat(v => fmtSciTick(v));
 
   const xG = g.append('g').attr('transform', `translate(0,${h})`).call(xAxis);
   const yG = g.append('g').call(yAxis);
   styleAxis(xG); styleAxis(yG);
 
   axisLabel(g, 'grain radius', w / 2, h + 34);
-  axisLabel(g, 'count', -h / 2, -42, -90);
+  axisLabel(g, 'count (grains/bin)', -h / 2, -42, -90);
 
   // Bars
   for (let i = 0; i < N; i++) {
@@ -325,14 +335,14 @@ export function drawNucleationPlot(
   const yScale = d3.scaleLinear().domain([0, p95 * 1.1]).range([h, 0]).clamp(true);
 
   const xAxis = d3.axisBottom(xScale).ticks(6).tickFormat(d => `${d}s`);
-  const yAxis = d3.axisLeft(yScale).ticks(4);
+  const yAxis = d3.axisLeft(yScale).ticks(4).tickFormat(v => fmtSciTick(v));
 
   const xG = g.append('g').attr('transform', `translate(0,${h})`).call(xAxis);
   const yG = g.append('g').call(yAxis);
   styleAxis(xG); styleAxis(yG);
 
   axisLabel(g, 'time', w / 2, h + 34);
-  axisLabel(g, 'nucleation rate', -h / 2, -48, -90);
+  axisLabel(g, 'nucleation rate (L⁻¹·s⁻¹)', -h / 2, -54, -90);
 
   const area = d3.area<SimState>()
     .x(d => xScale(d.time))

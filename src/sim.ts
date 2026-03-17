@@ -67,8 +67,9 @@ export interface SimParams {
   temperature: number;        // °C
   gelatinConc: number;        // g/L (affects growth kinetics)
 
-  // Silver nitrate
-  agno3Conc: number;          // mol/L initial
+  // Initial reactor concentrations
+  agno3Conc: number;          // mol/L initial AgNO3 in kettle
+  initialHalideConc: number;  // mol/L initial halide (KBr equivalent) in kettle
 
   // Halide jet (KBr ± KI)
   halidConc: number;          // mol/L KBr
@@ -191,7 +192,7 @@ export function runSimulation(params: SimParams): SimResult {
 
   // State
   let agC = params.agno3Conc;     // mol/L
-  let brC = 0.0;
+  let brC = params.initialHalideConc;
   let vol = params.reactorVolume; // L
   const tempC = params.temperature;
 
